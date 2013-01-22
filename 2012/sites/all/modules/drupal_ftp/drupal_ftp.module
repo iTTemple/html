@@ -1,0 +1,803 @@
+<?php
+// $Id: drupal_ftp.module,v 1.8 2010/02/15 12:28:33 alexkb Exp $
+
+/**
+ * @file
+ * Inspired by http://www.devarticles.com/c/a/PHP/My-FTP-Wrapper-Class-for-PHP/
+ * It's been drupalized, however, and most of the bugs from that example have
+ * been fixed.
+ * - winborn 2007-06-22 - 2007-06-28
+ *
+ * Converted to 6.x by alexkb on 28/07/09
+ */
+
+define('DRUPAL_FTP_FT_DIRECTORY', 0);
+define('DRUPAL_FTP_FT_FILE', 1);
+define('DRUPAL_FTP_FT_SYMLINK', 2);
+define('DRUPAL_FTP_DEFAULT_SERVER', 'ftp.drupal.org');
+define('DRUPAL_FTP_DEFAULT_USERNAME', 'anonymous');
+define('DRUPAL_FTP_DEFAULT_PASSWORD', 'someone@somewhere.com');
+define('DRUPAL_FTP_DEFAULT_HOME_DIRECTORY', '/pub/drupal/');
+define('DRUPAL_FTP_DEFAULT_PASSIVE_MODE', 0);
+
+
+/**
+ * Creates a new ftp object. if any elements of ftp_map are missing,
+ * they'll be filled with the server defaults.
+ */
+function drupal_ftp_ftp_object($ftp_map = array()) {
+  $ftp = new stdClass();
+
+  $ftp->__server = $ftp_map['#server'] ? $ftp_map['#server'] : variable_get('drupal_ftp_default_server', DRUPAL_FTP_DEFAULT_SERVER);
+  $ftp->__user = $ftp_map['#ftp_user'] ? $ftp_map['#ftp_user'] : variable_get('drupal_ftp_default_username', DRUPAL_FTP_DEFAULT_USERNAME);
+  $ftp->__password = $ftp_map['#password'] ? $ftp_map['#password'] : variable_get('drupal_ftp_default_password', DRUPAL_FTP_DEFAULT_PASSWORD);
+  $ftp->__directory = $ftp_map['#directory'] ? $ftp_map['#directory'] : variable_get('drupal_ftp_default_home_directory', DRUPAL_FTP_DEFAULT_HOME_DIRECTORY);
+  $ftp->__passive_mode = $ftp_map['#passive_mode'] ? $ftp_map['#passive_mode'] : variable_get('drupal_ftp_default_passive_mode', DRUPAL_FTP_DEFAULT_PASSIVE_MODE);
+
+  return $ftp;
+}
+
+/**
+ *  The drupal_ftp_connect function
+ *  This function connects to an FTP server and attempts to change into the
+ *  directory specified by the fourth parameter, $directory.
+ */
+function drupal_ftp_connect(&$ftp) {
+  if (is_null($ftp)) {
+    $ftp = drupal_ftp_ftp_object();
+  }
+
+  if (!$ftp->__conn && !drupal_ftp_connected($ftp)) {
+    // Attempt to connect to the remote server
+    $ftp->__conn = @ftp_connect($ftp->__server);
+
+    if (!$ftp->__conn) {
+      drupal_ftp_error(t('Couldn\'t connect to server @server', array('@server' => $ftp->__server)));
+      return FALSE;
+    }
+
+    // Attempt to login to the remote server
+    $ftp->__login = @ftp_login($ftp->__conn, $ftp->__user, $ftp->__password);
+
+    if (!$ftp->__login) {
+      drupal_ftp_error(t('Couldn\'t login as user @ftp_user to @server', array('@ftp_user' => $ftp->__user, '@server' => $ftp->__server)));
+      return FALSE;
+    }
+    
+    // set passive mode
+    if ($ftp->__passive_mode) {
+      @ftp_pasv($ftp->__conn, true);
+    }
+
+
+    // Attempt to change into the working directory
+    $ch_dir = @ftp_chdir($ftp->__conn, $ftp->__directory);
+
+    if (!$ch_dir) {
+      drupal_ftp_error(t('Couldn\'t change into the @directory directory', array('@directory' => $ftp->__directory)));
+      return FALSE;
+    }
+  }
+
+  // Everything worked OK, return TRUE
+  return TRUE;
+}
+
+/**
+ * The drupal_ftp_connected function
+ * This function queries the FTP server with the ftp_systype command to check
+ * if the connection is still alive. It returns TRUE on success or FALSE on
+ * disconnection.
+ */
+
+function drupal_ftp_connected(&$ftp) {
+  // Attempt to call the ftp_systype to see if the connect
+  // to the FTP server is still alive and kicking
+
+  if (is_null($ftp)) {
+    $ftp = drupal_ftp_ftp_object();
+    return FALSE;
+  }
+
+  if (!@ftp_systype($ftp->__conn)) {
+    // The connection is dead
+    return FALSE;
+  }
+  else {
+    // The connection is still alive
+    return TRUE;
+  }
+}
+
+/**
+ *  The drupal_ftp_ftp_to_data Function
+ *  This function tries to retrieve the contents of a file from the FTP server.
+ *  Firstly it changes into the $directory directory, and then attempts to
+ *  download the file $file_name. The file is saved locally and its contents
+ *  are returned to the caller of the function.
+ */
+function drupal_ftp_ftp_to_data($file_name, $directory, &$ftp) {
+  // Change into the remote directory and retrieve the content
+  // of a file. Once retrieve, return this value to the caller
+
+  if (!@drupal_ftp_connect($ftp)) {
+    return FALSE;
+  }
+
+  // We are now connected, so let's retrieve the file contents.
+  // Firstly, we change into the directory
+  $ch_dir = @ftp_chdir($ftp->__conn, $directory);
+
+  if (!$ch_dir) {
+    drupal_ftp_error(t('Couldn\'t change into directory: @directory', array('@directory' => $directory)));
+    return FALSE;
+  }
+
+  // We have changed into the directory, let's attempt to get the file
+  $temp_file = file_create_filename($file_name, file_directory_temp());
+  $fp = @fopen($temp_file, 'wb');
+  $get_file = @ftp_fget($ftp->__conn, $fp, $file_name, FTP_BINARY);
+  fclose($fp);
+
+  $fp = NULL;
+
+  if (!$get_file) {
+    drupal_ftp_error(t('Unable to download file: @filename from @directory', array('@filename' => $file_name, '@directory' => $directory)));
+    return FALSE;
+  }
+
+  // The file was downloaded successfully. Let's open it, read in its
+  // contents and return it to the calling function
+
+  $fp = @fopen($temp_file, 'rb');
+
+  if (!$fp) {
+    drupal_ftp_error(t('Unable to open @filename after it was downloaded from {@server}', array('@filename' => $file_name, '@server' => $_DRUPAL_FTP->__server)));
+    return FALSE;
+  }
+	
+	$file['mime'] = get_mime_type($temp_file);
+// 	$file['mime'] = mime_content_type($temp_file);
+// 	$file['size'] = filesize($temp_file);
+	
+  // Read in the contents of the file to a variable
+  $file['data'] = '';
+
+  while (!feof($fp)) {
+    $file['data'] .= fread($fp, 4096);
+  }
+
+  @fclose($fp);
+
+  // Return the HTML from the file
+  return $file;
+}
+
+function drupal_ftp_file_to_ftp($file, $ftp_filename, $ftp_directory, &$ftp) {
+  if (!@drupal_ftp_connect($ftp)) {
+    return FALSE;
+  }
+
+  if ($source = file_create_path($file)) {
+    // Now we can try to write to the remote file
+    $complete_filename = $ftp_directory .'/'. $ftp_filename;
+    $put_file = @ftp_put($ftp->__conn, $complete_filename, $source, FTP_BINARY);
+    if (!$put_file) {
+      drupal_ftp_error(t('Couldn\'t write to @complete_filename when trying to save file on the ftp server.', array('@complete_filename', $complete_filename)));
+      return FALSE;
+    }
+
+    // Everything worked OK
+    return TRUE;
+  }
+  else {
+    drupal_ftp_error(t('Couldn\'t find @file.', array('@file')));
+    return FALSE;
+  }
+}
+
+/**
+ *  The drupal_ftp_data_to_ftp function
+ *  This function will attempt to create a file called $file_name in the
+ *  $directory folder on the FTP server and will write $data to this file.
+ *  If the file already exists then an error will be raised.
+ */
+function drupal_ftp_data_to_ftp($data, $file_name, $directory, &$ftp) {
+  // Save HTML to a remote file on the FTP server
+
+  if (!@drupal_ftp_connect($ftp)) {
+    return FALSE;
+  }
+
+  // We are now connected, so let's retrieve the file contents.
+  // Firstly, we change into the directory
+  $ch_dir = @ftp_chdir($ftp->__conn, $directory);
+
+  if (!$ch_dir) {
+    drupal_ftp_error(t('Couldn\'t change into directory: @directory.', array('@directory' => $directory)));
+    return FALSE;
+  }
+
+  $local_filename = file_create_filename($file_name, file_directory_temp());
+  // Save the HTML to a file which we then upload
+  $fp = @fopen($local_filename, 'wb');
+
+  if (!$fp) {
+    drupal_ftp_error(t('Couldn\'t open a local file for temporary output.'));
+    return FALSE;
+  }
+
+  // The file was opened OK, let's write to it
+  $file_put = @fputs($fp, $data, strlen($data));
+
+  if (!$file_put) {
+    drupal_ftp_error(t('Couldn\'t write to a local file for temporary output.'));
+    return FALSE;
+  }
+  else {
+    @fclose($fp);
+  }
+
+  // Now we can try to write to the remote file
+  $complete_filename = $directory .'/'. $file_name;
+
+  $put_file = @ftp_put($ftp->__conn, $complete_filename, $local_filename, FTP_BINARY);
+
+  if (!$put_file) {
+    drupal_ftp_error(t('Couldn\'t write to @complete_filename when trying to save file on the ftp server.', array('@complete_filename', $complete_filename)));
+    return FALSE;
+  }
+
+  // Everything worked OK
+  return TRUE;
+}
+
+/**
+ *  The drupal_ftp_change_directory Function
+ *  This function simply changes into the $directory folder on the FTP server.
+ *  If a connection or permission error occurs then drupal_ftp_error() will
+ *  contain the error message.
+ */
+function drupal_ftp_change_directory($directory, &$ftp) {
+  // Switch to another directory on the web server. If we don't
+  // have permissions then an error will occur
+
+  if (!@drupal_ftp_connect($ftp)) {
+    return FALSE;
+  }
+
+  // Try and change into another directory
+  $ch_dir = ftp_chdir($ftp->__conn, $directory);
+
+  if (!$ch_dir) {
+    drupal_ftp_error(t('Couldn\'t change into directory: @directory', array('@directory', $directory)));
+    return FALSE;
+  }
+  else {
+    // Changing directories worked OK
+    return TRUE;
+  }
+}
+
+/**
+ *  The drupal_ftp_file_list Function
+ *  This function will change into the $directory folder and get a list of
+ *  files and directories contained in that folder. This function still needs a
+ *  lot of work, but should work in most cases.
+ */
+function drupal_ftp_file_list($directory, &$ftp) {
+  // This function will attempt to change into the specified
+  // directory and retrieve a list of files as an associative
+  // array. This list will include file name, size and date last modified
+
+  $file_array = array();
+
+  // Can we switch to the desired directory?
+  if (!drupal_ftp_change_directory($directory, $ftp)) {
+    return FALSE;
+  }
+
+  // We are in the directory, let's retrieve a list of files
+  $file_list = ftp_rawlist($ftp->__conn, $directory);
+  $file_count = count($file_list);
+  $reg = "/([-dl][rwxst-]+).* ([0-9]+) ([a-zA-Z0-9]+).* ([a-zA-Z0-9]+).* ([0-9]*) ([a-zA-Z]+[0-9: ]*[0-9]).* ([0-9]{2}:[0-9]{2}|[0-9]{4}) (.+)/";
+
+  // Save the list of files
+  if ($file_count > 0 && @is_array($file_list)) {
+    // Interate through the array
+    for ($i = 0; $i < $file_count; $i++) {
+      
+      if (preg_match($reg, $file_list[$i], $regs)) {
+        
+        $is_dir = (substr ($regs[1],0,1) == "d");        
+        $is_link = (substr ($regs[1],0,1) == "l");        
+
+        if ($is_dir) {
+          $file_type = DRUPAL_FTP_FT_DIRECTORY;
+          $file_size = 0;
+        }
+        else if ($is_link) {
+          $file_type = DRUPAL_FTP_FT_SYMLINK;
+          $file_size = 0;
+        }
+        else {
+          $file_type = DRUPAL_FTP_FT_FILE;
+          $file_size = $regs[5];
+        }
+
+        // Get the file/directory name
+        $file_name = $regs[8];
+
+        // Get the size of the file
+        $file_size = $regs[5];
+
+        // Get the date last modified
+        $file_time_stamp = $regs[6] .' '. $regs[7];
+
+        $file_array[] = array(
+          'type' => $file_type,
+          'filename' => $file_name,
+          'filesize' => $file_size,
+          'filetime' => $file_time_stamp
+        );
+      } // if ereg
+    }
+  }
+  sort($file_array);
+  return $file_array;
+}
+
+/**
+ *  The drupal_ftp_create_directory Function
+ *  This function tries to make a new directory called $folderName on the FTP
+ *  server. If it can create the folder, then the folder is given appropriate
+ *  rights with the CHMOD command.
+ */
+function drupal_ftp_create_directory($folder_name, &$ftp) {
+  // Makes a new folder on the web server via FTP
+
+  if (!@drupal_ftp_connect($ftp)) {
+    return FALSE;
+  }
+
+  $create_result = @ftp_mkdir($ftp->__conn, $folder_name);
+
+  if ($create_result == TRUE) {
+    // Can we change the files permissions?
+    $exec_result = @ftp_site($ftp->__conn, 'chmod 0777 '. $folder_name .'/');
+
+    if ($exec_result == TRUE) {
+      return TRUE;
+    }
+    else {
+      drupal_ftp_error(t('Couldn\'t set owner permissions on @folder.', array('@folder', $folder_name)));
+      return FALSE;
+    }
+  }
+  else {
+    drupal_ftp_error(t('Couldn\'t create new folder @folder.', array('@folder', $folder_name)));
+    return FALSE;
+  }
+}
+
+/**
+ *  The drupal_ftp_rename_file Function
+ *  This function attempts to rename a file on the FTP server from
+ *  $old_filename to $new_filename.
+ */
+function drupal_ftp_rename_file($old_filename, $new_filename, $is_folder, &$ftp) {
+  // Rename a file/directory on the FTP server
+
+  if (!@drupal_ftp_connect($ftp)) {
+    return FALSE;
+  }
+
+  $rename_result = @ftp_rename($ftp->__conn, $old_filename, $new_filename);
+
+  if ($rename_result == TRUE) {
+    // The file/folder was renamed successfully
+    return TRUE;
+  }
+  else {
+    // Couldn't rename the file/folder
+    if (!$is_folder) {
+      drupal_ftp_error(t('Couldn\'t rename the selected folder: @filename', array('@filename' => $old_filename)));
+    }
+    else {
+      drupal_ftp_error(t('Couldn\'t rename the selected file: @filename', array('@filename' => $old_filename)));
+    }
+
+    return FALSE;
+  }
+}
+
+/**
+ *  The drupal_ftp_delete_file Function
+ *  This function attempts to delete a file called $file_name from the FTP
+ *  server.
+ */
+function drupal_ftp_delete_file($file_name, &$ftp) {
+  // Remove the specified file from the FTP server
+  if (!@drupal_ftp_connect($ftp)) {
+    return FALSE;
+  }
+
+  $delete_result = @ftp_delete($ftp->__conn, $file_name);
+
+  if ($delete_result == TRUE) {
+    // The file/folder was renamed successfully
+    return TRUE;
+  }
+  else {
+    // Couldn't delete the selected file
+    drupal_ftp_error(t('Couldn\'t delete the selected file: @filename', array('@filename' => $file_name)));
+    return FALSE;
+  }
+}
+
+/**
+ *  The drupal_ftp_delete_folder Function
+ *  This function was one of the hardest to write. It recursively deletes all
+ *  files and folders from a directory called $folder_name.
+ */
+function drupal_ftp_delete_folder($folder_name, &$ftp) {
+  if (!@drupal_ftp_connect($ftp)) {
+    return FALSE;
+  }
+
+  @ftp_chdir($ftp->__conn, $folder_name);
+  $location = @ftp_pwd($ftp->__conn);
+
+  $directories = array();
+  $files = array();
+  $dir_counter = 0;
+  $file_counter = 0;
+  $content = @ftp_nlist($ftp->__conn, ".");
+
+  for ($i = 0; $i < sizeof($content); $i++) {
+    // If we can change into this then it's a directory.
+    // If not, it's a file
+    if ($content[$i] != "." && $content[$i] != "..") {
+      if (@ftp_chdir($ftp->__conn, $content[$i])) {
+        // We have a directory
+        $directories[] = $content[$i];
+        $dir_counter++;
+        @ftp_cdup($ftp->__conn);
+      }
+      else {
+        // We have a file
+        $files[] = $content[$i];
+        $file_counter++;
+      }
+    }
+  }
+
+  for ($j = 0; $j < $file_counter; $j++) {
+    @ftp_delete($ftp->__conn, $files[$j]);
+  }
+
+  for ($j = 0; $j < $dir_counter; $j++) {
+    if ($directories[$j] != "." OR $directories[$j] != "..") {
+      $location = ftp_pwd($ftp->__conn);
+      drupal_ftp_delete_folder($directories[$j], $ftp);
+      @ftp_cdup($ftp->__conn);
+      @ftp_rmdir($ftp->__conn, $directories[$j]);
+    }
+  }
+
+  // Lastly, we change into the directory that we want to delete and see
+  // if we can cdup. If we can, we delete it.
+  @ftp_chdir($ftp->__conn, $folder_name);
+  @ftp_cdup($ftp->__conn);
+  @ftp_rmdir($ftp->__conn, $folder_name);
+
+  // Did the recursive folder/file deletion work?
+  return TRUE;
+
+  /*
+  if (@$php_errormsg == '')
+  {
+  return TRUE;
+  }
+  else
+  {
+  $err = "Couldn't recursive delete folder: " . @$php_errormsg;
+  return FALSE;
+  }
+  */
+}
+
+/**
+ *  The drupal_ftp_file_exists Function
+ *  This function checks if a file called $file_name exists in the directory
+ *  called $folder_name on the FTP server.
+ *  It returns TRUE if the file exists, and FALSE if it doesn�t.
+ */
+function drupal_ftp_file_exists($folder_name, $file_name, &$ftp) {
+  // Does the specified file exist on the remote FTP server?
+  // Returns NULL on error, TRUE on file exists and FALSE if it doesn't exist
+
+  if (!drupal_ftp_change_directory($folder_name, $ftp)) {
+    return NULL;
+  }
+
+  // We have changed into the directory, let's get a list
+  // of files using ftp_nlist and compare it to see if it exists
+  $file_array = @ftp_nlist($ftp->__conn, $folder_name);
+
+  if (!is_array($file_array)) {
+    drupal_ftp_error(t('Unable to retrieve an ftp directory listing in @folder.', array('@folder' => $folder_name)));
+    return NULL;
+  }
+
+  $sep = $folder_name[strlen($folder_name)-1] == '/' ? '' : '/';
+  return in_array($folder_name . $sep . $file_name, $file_array);
+}
+
+function drupal_ftp_create_filename($basename, $directory, &$ftp) {
+  $dest = $basename;
+
+  if (drupal_ftp_file_exists($directory, $dest, $ftp)) {
+    // Destination file already exists, generate an alternative.
+    if ($pos = strrpos($basename, '.')) {
+      $name = substr($basename, 0, $pos);
+      $ext = substr($basename, $pos);
+    }
+    else {
+      $name = $basename;
+    }
+
+    $counter = 0;
+    do {
+      $dest = $name .'_'. $counter++ . $ext;
+    } while (drupal_ftp_file_exists($directory, $dest, $ftp));
+  }
+
+  return $dest;
+}
+
+function drupal_ftp_error($message = NULL, $severity = WATCHDOG_ERROR, $notify = TRUE, $type = 'error') {
+  static $errors;
+
+  if (isset($message)) {
+    $errors[] = $message;
+    watchdog('drupal_ftp', $message, $severity);
+    if ($notify) {
+      drupal_set_message($message, $type);
+    }
+  }
+  return $errors;
+}
+
+function drupal_ftp_perm() {
+  return array(
+    'administer drupal ftp',
+    'browse drupal ftp',
+    'write drupal ftp',
+  );
+}
+
+function drupal_ftp_menu() {
+  $items = array();
+
+  $items['ftp/browse'] = array(
+    'title' => 'FTP Browse',
+    'page callback' => 'drupal_ftp_browse_page',
+    'type' => MENU_LOCAL_TASK,
+    'access callback' => 'user_access',
+    'access arguments' => array('browse drupal ftp'),
+  );
+  $items['ftp/dl'] = array(
+    'title' => 'FTP Download',
+    'page callback' => 'drupal_ftp_browse_dl',
+    'type' => MENU_LOCAL_TASK,
+    'access callback' => 'user_access',
+    'access arguments' => array('browse drupal ftp'),
+  );
+  $items['admin/settings/drupal_ftp'] = array(
+    'title' => 'Drupal FTP configuration',
+    'description' => 'Configure Drupal FTP information, such as default server, username & password.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('drupal_ftp_settings'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer drupal ftp'),
+  );
+  $items['ftp/transfer'] = array(
+    'title' => 'Drupal FTP transfer file',
+    'description' => 'Transfer a file through ftp.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('drupal_ftp_transfer_file'),
+    'access callback' => 'user_access',
+    'access arguments' => array('write drupal ftp'),
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+function drupal_ftp_transfer_file() {
+  $args = func_get_args();
+  array_shift($args); // gets rid of the 1st element used by drupal.
+
+  if (is_array($args)) {
+    $dir = '/'. implode('/', $args);
+  }
+  else {
+    $dir = '/';
+  }
+
+  $form = array();
+  $form['url'] = array(
+    '#type' => 'textfield',
+    '#title' => t('URL to transfer'),
+    '#description' => t('Enter the complete URL, including http://, of the file to transfer to the %dir directory.', array('%dir' => $dir)),
+    '#required' => TRUE,
+  );
+  $form['filename'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Filename to assign'),
+    '#description' => t('Please give the filename you wish to assign to this file.'),
+    '#required' => TRUE,
+  );
+  $form['directory'] = array(
+    '#type' => 'value',
+    '#value' => $dir,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Transfer'),
+  );
+  return $form;
+}
+
+function drupal_ftp_transfer_file_submit($form, $form_state) {
+  $dir = $form_state['values']['directory'];
+  $home = variable_get('drupal_ftp_default_home_directory', DRUPAL_FTP_DEFAULT_HOME_DIRECTORY);
+  $url = check_url($form_state['values']['url']);
+  $result = drupal_http_request($url);
+
+  if ($result->code == 200) {
+    $data = $result->data;
+    if (drupal_ftp_data_to_ftp($data, check_plain($form_state['values']['filename']), $home . $dir, $ftp)) {
+      drupal_set_message(t('File transfered.'));
+    }
+  }
+  return 'ftp/browse'. $dir;
+}
+
+function drupal_ftp_browse_dl() {
+  $args = func_get_args();
+  $directory = implode('/', $args);
+
+  $home = variable_get('drupal_ftp_default_home_directory', DRUPAL_FTP_DEFAULT_HOME_DIRECTORY);
+
+  $file = $_GET['file'];
+  $data = drupal_ftp_ftp_to_data($file, $home . $directory, $ftp);
+  $data = $data['data'];
+  if ($data) {
+    drupal_set_title($file);
+  }
+  $parent = l(t('..'), 'ftp/browse/'. $directory);
+  $output = theme('drupal_ftp_download', $parent, $data);
+  return $output;
+}
+
+function drupal_ftp_browse_page() {
+  $args = func_get_args();
+  $file_list = array();
+
+  $home_dir = variable_get('drupal_ftp_default_home_directory', DRUPAL_FTP_DEFAULT_HOME_DIRECTORY);
+
+  $directory = implode('/', $args);
+
+  $file_list = drupal_ftp_file_list($home_dir . $directory, $ftp);
+  $browser = array();
+  $links = array();
+
+  if (!empty($args)) {
+    $parents = $args;
+    array_pop($parents);
+    $browser[] = l('..', 'ftp/browse'. (!empty($parents) ? '/'. implode('/', $parents) : ''));
+  }
+  if (is_array($file_list)) {
+    for ($i = 0; $i < sizeof($file_list); $i++) {
+      if ($file_list[$i]["type"] == DRUPAL_FTP_FT_DIRECTORY) {
+        // Folder
+        $browser[] = l($file_list[$i]["filename"], 'ftp/browse/'. (!empty($args) ? $directory .'/' : '') . $file_list[$i]["filename"]) ." (directory)";
+      }
+      else if ($file_list[$i]["type"] == DRUPAL_FTP_FT_SYMLINK) {
+        $browser[] = $file_list[$i]["filename"];
+      }
+      else {
+        // File
+        $browser[] = l($file_list[$i]["filename"], 'ftp/dl/'. (!empty($args) ? $directory : ''),
+          array('query' => 'file='. $file_list[$i]["filename"])) ." (" . $file_list[$i]["filesize"] ." bytes)";
+      }
+    }
+  }
+  else {
+    $browser[] = theme('drupal_ftp_empty_directory_message', $directory);
+  }
+  if (user_access('write drupal ftp')) {
+    $links[] = l(t('transfer file'), 'ftp/transfer/'. $directory);
+  }
+  drupal_set_title(t('FTP Browse @directory', array('@directory' => $directory)));
+  $output .= theme('drupal_ftp_browser', $browser, $links);
+
+  return $output;
+}
+
+function drupal_ftp_theme() {
+  return array(
+    'drupal_ftp_browser' => array(
+      'arguments' => array('browser' => NULL, 'links' => NULL),
+    ),
+    'drupal_ftp_download' => array(
+      'arguments' => array('directory_link' => NULL, 'data' => NULL),
+    ),
+    'drupal_ftp_empty_directory_message' => array(
+      'arguments' => array('directory' => NULL),
+    ),
+  );
+}
+
+function theme_drupal_ftp_empty_directory_message($directory) {
+  return t('No files in @directory directory.', array('@directory' => $directory));
+}
+
+function theme_drupal_ftp_browser($browser = array(), $links = array()) {
+  $output .= '<div class="drupal_ftp_browser">'."\n";
+  $output .= theme('item_list', $browser);
+  $output .= "</div>\n";
+  if (!empty($links)) {
+    $output .= "<div class=\"drupal_ftp_browser_links\">\n";
+    $output .= '<strong>'. t('Available actions:') .'</strong><br />';
+    $output .= theme('item_list', $links);
+    $output .= "</div>\n\n";
+  }
+  return $output;
+}
+
+function theme_drupal_ftp_download($directory_link, $data) {
+  $output = '<div class="drupal_ftp_parent_link">'. $directory_link .'</div><div class="drupal_ftp_data">'. $data  .'</div>'."\n\n";
+  return $output;
+}
+
+function drupal_ftp_settings() {
+  $form = array();
+  $form['drupal_ftp_default_server'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default FTP Server'),
+    '#default_value' => variable_get('drupal_ftp_default_server', DRUPAL_FTP_DEFAULT_SERVER),
+    '#description' => t('This is the default server that may be browsed. Note that other modules using the provided API may override this value.'),
+  );
+  $form['drupal_ftp_default_username'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default FTP Username'),
+    '#default_value' => variable_get('drupal_ftp_default_username', DRUPAL_FTP_DEFAULT_USERNAME),
+    '#description' => t('This is the default username that will be used when browsing. Note that other modules using the provided API may override this value.'),
+  );
+  $form['drupal_ftp_default_password'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default FTP Password'),
+    '#default_value' => variable_get('drupal_ftp_default_password', DRUPAL_FTP_DEFAULT_PASSWORD),
+    '#description' => t('This is the default password that will be used when browsing. Note that other modules using the provided API may override this value.'),
+  );
+  $form['drupal_ftp_default_home_directory'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default FTP Home Directory'),
+    '#default_value' => variable_get('drupal_ftp_default_home_directory', DRUPAL_FTP_DEFAULT_HOME_DIRECTORY),
+    '#description' => t('This is the default directory that will be used as the home directory when browsing. Make sure that the directory begins and ends with a forward slash, such as \'/www/\', \'/home/public_ftp/\', or \'/\'. Note that other modules using the provided API may override this value.'),
+  );
+  $form['drupal_ftp_default_passive_mode'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Passive mode'),
+    '#default_value' => variable_get('drupal_ftp_default_passive_mode', DRUPAL_FTP_DEFAULT_PASSIVE_MODE),
+    '#description' => t('Use passive mode for file transfers. Works for getting files from behind a firewall.'),
+  );
+
+  return system_settings_form($form);
+}
+
+
+

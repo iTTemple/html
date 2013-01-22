@@ -1,0 +1,12 @@
+SELECT COUNT(DISTINCT uid) FROM {sessions} WHERE uid > 0 AND timestamp >= %d
+
+= '%s'
+
+ge DESC, pid DESC
+
+ta WHERE b.theme = '%s' AND b.status = 1 AND (r.rid IN (%d) OR r.rid IS NULL) ORDER BY b.region, b.weight, b.module
+
+ion_timestamp, r.format, u.name, u.picture, u.data FROM {node} n INNER JOIN {users} u ON u.uid = n.uid INNER JOIN {node_revisions} r ON r.vid = n.vid WHERE n.nid = %d
+
+s3_title_value = NULL, field_project_image_fid = NULL, field_project_image_list = NULL, field_project_image_data = NULL WHERE vid = %d
+

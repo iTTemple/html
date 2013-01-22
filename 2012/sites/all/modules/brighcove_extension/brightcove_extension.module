@@ -1,0 +1,172 @@
+<?
+// function brightcove_extension_menu() {
+//   $items = array();
+// 
+//   $items['brightcove/get/player'] = array(
+//     'page callback' => 'brightcove_extension_render_player',
+//     'access arguments' => array('access content'),
+//     'type' => MENU_CALLBACK,
+//   );
+// 
+//   return $items;
+// }
+
+function brightcove_extension_nodeapi(&$node, $op) {
+	switch ($op) {
+		case 'insert':
+    case 'update':
+      if ($node->type == 'project' or $node->type == 'share' ) {
+				require_once 'sites/all/libraries/echove/echove.php';
+				
+				$read_token = variable_get('brightcove_read_api_key', '');
+  			$write_token = variable_get('brightcove_write_api_key', '');
+				
+				$bc = new Echove($read_token, $write_token);
+				
+				$fields = array();
+				$result = db_query('
+					SELECT field_name FROM content_node_field_instance
+					WHERE type_name = "'.$node->type.'"
+					AND widget_module = "brightcove_cck"
+				');
+				while ($row = db_fetch_array($result)) {
+					$fields[] = $row['field_name'];
+				}
+				
+				$video_ids = array();
+				foreach ($fields as $field) {
+					foreach ($node->{$field} as $video) {
+						if (!empty($video['video_id']))
+							$video_ids[] = $video['video_id'];
+					}
+				}	
+				
+				if (!empty($video_ids)) {
+					$params = array(
+						'video_ids' => implode(',', $video_ids),
+						'video_fields' => 'id,thumbnailURL,videoStillURL,shortDescription',
+					);
+					$video_data = $bc->find('videosbyids', $params);
+					
+					
+					
+					$video_thumnails = array();
+					$video_stills = array();
+					$video_description = array();
+					foreach ($video_data as $v) {
+						$video_thumnails[$v->id] = $v->thumbnailURL;
+						$video_stills[$v->id] = $v->videoStillURL;
+						$video_description[$v->id] = $v->shortDescription;
+					}
+					
+					foreach ($fields as $field) {
+						foreach ($node->{$field} as &$video) {
+							$video['video_thumbnail'] = $video_thumnails[ $video['video_id'] ];
+							$video['video_still'] = $video_stills[ $video['video_id'] ];
+							$video['video_description'] = $video_description[ $video['video_id'] ];
+						}
+					}
+					
+				}
+				
+			}
+			break;
+			
+			
+			case 'view':
+				if ($node->type == 'project' or $node->type == 'share') {
+					$fields = array();
+					$result = db_query('
+						SELECT field_name FROM content_node_field_instance
+						WHERE type_name = "'.$node->type.'"
+						AND widget_module = "brightcove_cck"
+					');
+					while ($row = db_fetch_array($result)) {
+						$fields[] = $row['field_name'];
+					}
+					
+					foreach ($fields as $field) {
+						$videos = array();
+						$result = db_query('
+							SELECT '.$field.'_video_thumbnail,'.$field.'_video_still,'.$field.'_video_description, delta FROM content_'.$field.'
+							WHERE nid = '.$node->nid.'
+							AND vid = '.$node->vid.'
+							ORDER BY delta
+						');
+						while ($row = db_fetch_array($result)) {
+							$node->{$field}[ $row['delta'] ]['video_thumbnail'] = $row[$field.'_video_thumbnail'];
+							$node->{$field}[ $row['delta'] ]['video_still'] = $row[$field.'_video_still'];
+							$node->{$field}[ $row['delta'] ]['video_description'] = $row[$field.'_video_description'];
+						}
+					}
+					drupal_add_js(drupal_get_path('module', 'brightcove_extension').'/APIModules_all.js');
+					drupal_add_js(drupal_get_path('module', 'brightcove_extension').'/brightcove_extension.js');
+					/*
+					// get associtated case study and credits
+					$result = db_query('
+						SELECT n.nid,n.type FROM content_field_case_project fp
+						JOIN node n ON n.nid = fp.nid
+						WHERE field_case_project_nid = '.$node->nid.'
+					');
+					while ($row = db_fetch_array($result)) {
+						switch ($row['type']) {
+							case 'case_study':
+								$node->case_study_path = drupal_get_path_alias('node/'.$row['nid']);
+								break;
+							case 'credits':
+								$node->credits_path = drupal_get_path_alias('node/'.$row['nid']);
+								break;
+							default:
+								break;
+						}
+					}
+					*/
+				}
+				break;
+	}
+}
+
+// function brightcove_extension_render_player($videoId) {
+// 	$json['html'] = '
+// 		<div id="video-player">
+// 		  <object id="myExperience" class="BrightcoveExperience">
+// 			  <param name="bgcolor" value="#FFFFFF" />
+// 			  <param name="width" value="480" />
+// 			  <param name="height" value="270" />
+// 			  <param name="playerID" value="97611362001" />
+// 			  <param name="@videoPlayer" value="'.$videoId.'" />
+// 			  <param name="playerKey" value="AQ%2E%2E,AAAAFTE7e1k%2E,4VZUSNuug3vIIhUML3D7YsD_OsnBfRgX" />
+// 			  <param name="isVid" value="true" />
+// 			  <param name="isUI" value="true" />
+// 			  <param name="dynamicStreaming" value="true" />
+// 			</object>
+// 			<script type="text/javascript">brightcove.createExperiences();</script>
+// 		</div>
+// 	';
+// 
+// 	header("Cache-Control: no-cache, must-revalidate");
+// 	echo json_encode($json);
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+?>

@@ -1,0 +1,7 @@
+name = Brightcove Extension
+description = Brightcove extensions (thumbnails, playlist)
+package = SMBLZ
+dependencies[] = brightcove
+core = 6.x
+
+

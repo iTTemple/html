@@ -1,0 +1,163 @@
+<?
+/**
+ * Implementation of hook_menu().
+ */
+function news_menu() {
+	$items['news/archive/%'] = array(
+    'title' => t('Archive'),
+    'description' => 'News archive',
+    'page callback' => 'news_archive',
+    'page arguments' => array(2),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+   );
+
+	return $items;
+}
+
+/**
+ * Implementation of hook_block().
+ */
+function news_block($op = 'list', $delta = 0, $edit = array()) {
+
+  if ($op == 'list') {
+    $blocks[0]['info'] = t('News archive years');
+    $blocks[0]['cache'] = BLOCK_NO_CACHE;
+		
+		$blocks[1]['info'] = t('News stories by year quarter');
+    $blocks[1]['cache'] = BLOCK_NO_CACHE;
+    
+    return $blocks;
+  }
+  
+  elseif ($op == 'view') {  
+  	switch ($delta) {
+	   	case 0:
+	   		return news_block_years();
+				break;
+			case 1:
+	   		$year = $edit['year'];
+				$quarter = $edit['quarter'];
+	   		
+	   		return news_block_quarter($year, $quarter);
+				break;
+			default:
+		}
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function news_theme() {
+  return array(
+    'news_years_block' => array(
+      'arguments' => array('years' => NULL),
+      'template' => 'news_years_block',
+    ),
+		'news_quarter_block' => array(
+      'arguments' => array('quarter' => NULL, 'news' => NULL),
+      'template' => 'news_quarter_block',
+    ),
+    'news_archive' => array(
+      'arguments' => array('year' => NULL),
+      'template' => 'news_archive',
+    ),
+  );
+}
+
+function news_block_years() {
+	$result = db_query("
+		SELECT DISTINCT EXTRACT(YEAR FROM(FROM_UNIXTIME(node.created))) as year
+		FROM node
+		WHERE node.type = 'story'
+		ORDER BY node.created DESC
+	");
+	
+	$years = array();
+  while ($row = db_fetch_array($result)) {
+  	$years[ $row['year'] ]['year'] = $row['year'];
+  	if (arg(2) == $row['year']) {
+			$years[ $row['year'] ]['class'] = 'active';
+		}
+		else {
+			$years[ $row['year'] ]['class'] = '';
+		}
+  }
+
+  $block['subject'] = t('News archive year list');
+  $block['content'] = theme('news_years_block', $years);
+  return $block;
+}
+
+function news_block_quarter($year, $quarter) {
+	
+	switch ($quarter) {
+   	case 1:
+   		$months = '1,2,3';
+   		break;
+   	case 2:
+   		$months = '4,5,6';
+   		break;
+   	case 3:
+   		$months = '7,8,9';
+			break;
+   	case 4:
+   		$months = '10,11,12';
+   		break;
+		default:
+   		$months = '0';
+	}
+
+	$result = db_query("
+		SELECT nid, title, dst
+		FROM node, url_alias
+		WHERE CONCAT('node/', node.nid) = url_alias.src
+		AND node.type = 'story'
+		AND EXTRACT(YEAR FROM(FROM_UNIXTIME(node.created))) = ".$year."
+		AND EXTRACT(MONTH FROM(FROM_UNIXTIME(node.created))) IN (".$months.")
+		ORDER BY node.created
+	");
+	
+	$news = array();
+  while ($row = db_fetch_array($result)) {
+  	$nn = node_load($row['nid']);
+  	$news[] = array(
+  		'title' => $row['title'],
+  		'url' => $row['dst'],
+  		'node' => $nn,
+		);
+  }
+
+  $block['subject'] = t('News stories in '.$year.' Q'.$quarter);
+  $block['content'] = theme('news_quarter_block', $quarter, $news);
+  return $block;
+}
+
+function news_archive($year) {
+	return theme('news_archive', $year);
+} 
+
+
+function vuguru_news_years() {
+	$result = db_query("
+		SELECT DISTINCT EXTRACT(YEAR FROM(FROM_UNIXTIME(node.created))) as year
+		FROM node
+		WHERE node.type = 'story'
+		ORDER BY node.created DESC
+	");
+	
+	$years = array();
+  	while ($row = db_fetch_array($result)) {
+  		$years[ $row['year'] ]['year'] = $row['year'];
+	  	if (arg(2) == $row['year']) {
+			$years[ $row['year'] ]['class'] = 'active';
+		}
+		else {
+			$years[ $row['year'] ]['class'] = '';
+		}
+  	}
+  	return $years;
+}
+
+?>

@@ -1,0 +1,11 @@
+; $Id: drupal_ftp.info,v 1.2 2010/02/14 13:26:17 alexkb Exp $
+name = Drupal FTP
+description = An engine to provide FTP support to Drupal.
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-02-15
+version = "6.x-1.1"
+core = "6.x"
+project = "drupal_ftp"
+datestamp = "1266237306"
+

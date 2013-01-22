@@ -1,0 +1,148 @@
+$(document).ready(function() { 
+     // TEAM SECTION
+
+
+     $("div#team-members-list > div.views-row:even").each(function(){
+          $(this).clone().appendTo("div.team-members-Left");
+     });
+     $("div#team-members-list > div.views-row:odd").each(function(){
+          $(this).clone().appendTo("div.team-members-Right");
+     });
+     $("div.left > div.item").each(function(){ $(this).remove(); });
+     
+     lengthLeft = $("div.team-members-Left").height();
+     lengthRight = $("div.team-members-Right").height();
+     
+     //$("div.kontrola").html(lengthLeft+" "+lengthRight);
+     
+
+     $("div.team-member-Column div.views-field-field-member-thumbnail-fid span.field-content a").live("click", function(){
+          return false;
+     });
+     /*
+     $("div.team-member-Column div.views-field-field-member-thumbnail-fid span.field-content a").live("mouseover", function(){
+          $("div.team-member-Column div.views-field-field-member-thumbnail-fid").each(function(){
+               $(this).hide();
+          });
+          $(this).parent("span").parent("div.views-field-field-member-thumbnail-fid").show();
+     });
+     $("div.team-member-Column div.views-field-field-member-thumbnail-fid span.field-content a").live("mouseout", function(){
+          $("div.team-member-Column div.views-field-field-member-thumbnail-fid").each(function(){
+               $(this).show();
+          });
+     });
+     */     
+     
+     imgs = $("div#team-members-list-defaultimage img").length;
+     imgShow = Math.round(Math.random()*(imgs-1));
+     //alert(imgShow);
+     $("div#team-members-list-defaultimage img").hide();
+     $("div#team-members-list-defaultimage img:eq("+imgShow+")").show();
+     
+     
+     /* */
+     $("div.team-member-Column div.views-field-field-member-thumbnail-fid span.field-content a").live("mouseover", function(){
+          $(this).append('<span class="ImgBorderLeft"></span><span class="ImgBorderTop"></span><span class="ImgBorderRight"></span><span class="ImgBorderBottom"></span>');
+          $(this).children("img").hide();
+          //$(this).children("img").css("visibility","hidden");
+     });
+     $("div.team-member-Column div.views-field-field-member-thumbnail-fid span.field-content a").live("mouseleave", function(){
+          $(this).children("span").remove();
+          $(this).children("img").show();
+     });
+
+     
+     //alert('LZ Flying v1') .left .item
+     $("div.team-member-Column div.views-field-field-member-thumbnail-fid span.field-content a").live('click', function(){
+          //alert('sdf');
+          $("div.team-member-Column div.views-row").fadeIn(1000);
+          $("#team-members-list-defaultimage").fadeOut(500);
+          
+          
+          x = Math.round(Math.random()*2);
+          if (lengthLeft>lengthRight){
+               var where = "team-members-Right";
+               //alert(where);
+          }else if (lengthLeft<lengthRight){
+               var where = "team-members-Left";
+               //alert(where);
+          }else if (lengthLeft==lengthRight){
+               if ( $(this).parent("span").parent("div").parent("div").parent("div").hasClass("team-members-Right") ){
+                    var where = "team-members-Right";
+                    //alert(where);
+               }
+               if ( $(this).parent("span").parent("div").parent("div").parent("div").hasClass("team-members-Left") ){
+                    var where = "team-members-Left";
+                    //alert(where);
+               }     
+          }
+          $(this).children("span").remove();
+          $(this).children("img").show();
+          
+          $("div.storage div.views-row").clone().appendTo("div."+where).fadeIn(500);
+          $("div.storage").html("");
+
+          $(this).parent("span").parent("div").parent("div").clone().appendTo(".storage").hide();
+          var c = $(this).parent("span").parent("div").parent("div").attr("class"); 
+          var cl = c.split(' '); /* pole, abych se dostal ke classe */
+          
+          $("#team-members-list-detail").children("div").fadeOut(500); 
+          $("#team-members-list-detail").children("."+cl[1]).fadeIn(500); 
+     
+          $(this).parent("span").parent("div").parent("div").html("").css({ "background-color":"transparent" }).animate({
+               height: '1px',
+               margin: '0px'
+          }, function(){ 
+                    $(this).remove();                   
+                    lengthLeft = $("div.team-members-Left").height();
+                    lengthRight = $("div.team-members-Right").height();
+                    what = $(this).attr("class");
+                    what = what.substr(5);
+                    $("div.right div.inner."+what).fadeIn(500);                    
+                    //$("div.kontrola").html(lengthLeft+" "+lengthRight);   
+
+               }
+          );
+
+          /*   
+          
+          x = Math.round(Math.random()*2);
+          if (lengthLeft>lengthRight){
+               var where = "colRight";
+          }else if (lengthLeft<lengthRight){
+               var where = "colLeft";
+          }else if (lengthLeft==lengthRight){
+               if ( $(this).parent("div").hasClass("colRight") ){
+                    var where = "colRight";
+               }
+               if ( $(this).parent("div").hasClass("colLeft") ){
+                    var where = "colLeft";
+               }     
+          }
+          $("div.storage div.item").clone().appendTo("div."+where).fadeIn(2000);
+          $("div.storage").html("");
+          
+          $(this).clone().appendTo(".storage").hide();
+          var c = $(this).attr("class");
+          
+          $(this).html("").css({ "background-color":"transparent" }).animate({
+               height: '-=24px',
+               margin: '0px'
+          }, function(){ 
+                    $(this).remove();
+                    lengthLeft = $("div.colLeft").height();
+                    lengthRight = $("div.colRight").height();
+                    what = $(this).attr("class");
+                    what = what.substr(5);
+                    $("div.right div.inner."+what).fadeIn(500);                    
+                    $("div.kontrola").html(lengthLeft+" "+lengthRight);   
+               }
+          );
+          */
+          
+     }); 
+     
+     
+
+
+});

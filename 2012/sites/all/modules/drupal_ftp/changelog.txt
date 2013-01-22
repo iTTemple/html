@@ -1,0 +1,22 @@
+// $Id: changelog.txt,v 1.6 2010/02/14 13:26:17 alexkb Exp $
+
+July 2009
+---------
+ * Port to d6 (alexkb).
+
+June 2007
+---------
+ * Add drupal_ftp_file_to_ftp (aaron).
+ * Fix some legacy bugs (aaron).
+ * Clean up code (aaron).
+ * More theming (aaron).
+ * Change error handling to use watchdog (aaron).
+ * Drupalize code more (aaron).
+ * Add file transfer pages (aaron).
+ * Use variables for ftp server settings (aaron).
+ * Add admin settings menu (aaron).
+ * Create info file (aaron).
+ * Create dl page (aaron).
+ * Create browse page (aaron).
+ * Add drupal.org as example (aaron).
+ * Drupalize my_ftp (aaron).

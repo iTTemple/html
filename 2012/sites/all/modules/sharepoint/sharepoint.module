@@ -1,0 +1,371 @@
+<?
+
+define('SHAREPOINT_SECURITY_ACCESS_ALL', 'admin');
+
+function sharepoint_menu() {
+  $items = array();
+
+  $items['sharepoint/ftp/browse'] = array(
+    'page callback' => 'sharepoint_render_ftp_browser',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  
+	$items['sharepoint/ftp/download'] = array(
+    'page callback' => 'sharepoint_render_ftp_download',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  
+  return $items;
+}
+
+function sharepoint_form_alter(&$form, $form_state, $form_id) {
+
+	if ($form_id == 'share_node_form') {
+		$form['share_type'] = array(
+	      '#type' => 'radios', 
+	      '#title' => t('Sharepoint type'),
+	      '#description' => t('Select the Sharepoint type.'),
+	      '#default_value' => $form['#node']->share_type=='showroom' ? 'showroom' : 'folder',       
+	      '#options' => array('folder' => t('Shared Folder'), 'showroom' => t('Showroom')),
+	      '#weight' => -3,
+    );
+    
+    $form['folder_type'] = array(
+		  '#type' => 'fieldset',
+		  '#title' => t('Shared folder'),
+		  '#weight' => -2,
+		  '#collapsible' => TRUE,
+		  '#collapsed' => FALSE,
+			'#attributes' => array('class' => 'folder-fieldset')
+		);
+    
+    if (!empty($form['#node']->share_folder)) {
+			$ftp_dir = $form['#node']->share_folder;
+		}
+		else {
+			$ftp_dir = variable_get('drupal_ftp_default_home_directory', '/');
+		}    
+    $form['folder_type']['share_folder'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Folder'),
+      '#description' => t('Select the shared folder.'),
+      '#default_value' => $ftp_dir,       
+      '#suffix' => sharepoint_get_ftp_browser($ftp_dir, sharepoint_get_security_hash('admin')),
+    );
+    
+    $form['showroom_type'] = array(
+		  '#type' => 'fieldset',
+		  '#title' => t('Show Room'),
+		  '#weight' => -2,
+		  '#collapsible' => TRUE,
+		  '#collapsed' => FALSE,
+			'#attributes' => array('class' => 'showroom-fieldset')
+		);
+		
+		$form['showroom_type']['field_share_video'] = $form['field_share_video'];
+		unset($form['field_share_video']);
+		
+		$form['showroom_type']['field_share_image1'] = $form['field_share_image1'];
+		unset($form['field_share_image1']);
+		$form['showroom_type']['field_share_text1'] = $form['field_share_text1'];
+		unset($form['field_share_text1']);
+    
+		$form['showroom_type']['field_share_image2'] = $form['field_share_image2'];
+		unset($form['field_share_image2']);
+		$form['showroom_type']['field_share_text2'] = $form['field_share_text2'];
+		unset($form['field_share_text2']);
+    
+		$form['showroom_type']['field_share_image3'] = $form['field_share_image3'];
+		unset($form['field_share_image3']);
+		$form['showroom_type']['field_share_text3'] = $form['field_share_text3'];
+		unset($form['field_share_text3']);
+    
+		$form['showroom_type']['field_share_image4'] = $form['field_share_image4'];
+		unset($form['field_share_image4']);
+		$form['showroom_type']['field_share_text4'] = $form['field_share_text4'];
+		unset($form['field_share_text4']);
+    
+		$form['showroom_type']['field_share_image5'] = $form['field_share_image5'];
+		unset($form['field_share_image5']);
+		$form['showroom_type']['field_share_text5'] = $form['field_share_text5'];
+		unset($form['field_share_text5']);
+    
+		$form['showroom_type']['field_share_image6'] = $form['field_share_image6'];
+		unset($form['field_share_image6']);
+		$form['showroom_type']['field_share_text6'] = $form['field_share_text6'];
+		unset($form['field_share_text6']);
+    
+		$form['showroom_type']['field_share_image7'] = $form['field_share_image7'];
+		unset($form['field_share_image7']);
+		$form['showroom_type']['field_share_text7'] = $form['field_share_text7'];
+		unset($form['field_share_text7']);
+    
+		$form['showroom_type']['field_share_image8'] = $form['field_share_image8'];
+		unset($form['field_share_image8']);
+		$form['showroom_type']['field_share_text8'] = $form['field_share_text8'];
+		unset($form['field_share_text8']);
+    
+		$form['showroom_type']['field_share_image9'] = $form['field_share_image9'];
+		unset($form['field_share_image9']);
+		$form['showroom_type']['field_share_text9'] = $form['field_share_text9'];
+		unset($form['field_share_text9']);
+    
+		$form['showroom_type']['field_share_image10'] = $form['field_share_image10'];
+		unset($form['field_share_image10']);
+		$form['showroom_type']['field_share_text10'] = $form['field_share_text10'];
+		unset($form['field_share_text10']);
+    
+		$form['showroom_type']['field_share_image11'] = $form['field_share_image11'];
+		unset($form['field_share_image11']);
+		$form['showroom_type']['field_share_text11'] = $form['field_share_text11'];
+		unset($form['field_share_text11']);
+    
+		$form['showroom_type']['field_share_image12'] = $form['field_share_image12'];
+		unset($form['field_share_image12']);
+		$form['showroom_type']['field_share_text12'] = $form['field_share_text12'];
+		unset($form['field_share_text12']);
+    
+		$form['showroom_type']['field_share_image13'] = $form['field_share_image13'];
+		unset($form['field_share_image13']);
+		$form['showroom_type']['field_share_text13'] = $form['field_share_text13'];
+		unset($form['field_share_text13']);
+    
+		$form['showroom_type']['field_share_image14'] = $form['field_share_image14'];
+		unset($form['field_share_image14']);
+		$form['showroom_type']['field_share_text14'] = $form['field_share_text14'];
+		unset($form['field_share_text14']);
+    
+		$form['showroom_type']['field_share_image15'] = $form['field_share_image15'];
+		unset($form['field_share_image15']);
+		$form['showroom_type']['field_share_text15'] = $form['field_share_text15'];
+		unset($form['field_share_text15']);
+    
+		$form['showroom_type']['field_share_image16'] = $form['field_share_image16'];
+		unset($form['field_share_image16']);
+		$form['showroom_type']['field_share_text16'] = $form['field_share_text16'];
+		unset($form['field_share_text16']);
+    
+		$form['showroom_type']['field_share_image17'] = $form['field_share_image17'];
+		unset($form['field_share_image17']);
+		$form['showroom_type']['field_share_text17'] = $form['field_share_text17'];
+		unset($form['field_share_text17']);
+    
+		$form['showroom_type']['field_share_image18'] = $form['field_share_image18'];
+		unset($form['field_share_image18']);
+		$form['showroom_type']['field_share_text18'] = $form['field_share_text18'];
+		unset($form['field_share_text18']);
+    
+		$form['showroom_type']['field_share_image19'] = $form['field_share_image19'];
+		unset($form['field_share_image19']);
+		$form['showroom_type']['field_share_text19'] = $form['field_share_text19'];
+		unset($form['field_share_text19']);
+    
+		$form['showroom_type']['field_share_image20'] = $form['field_share_image20'];
+		unset($form['field_share_image20']);
+		$form['showroom_type']['field_share_text20'] = $form['field_share_text20'];
+		unset($form['field_share_text20']);
+    
+
+    drupal_add_js(drupal_get_path('module', 'sharepoint').'/sharepoint.js');
+	}
+	return $form;
+}
+
+
+function sharepoint_get_ftp_browser($folder = '/', $hash = '', $display_files = false) {
+	$security_ok = sharepoint_check_security_hash($hash, $folder);
+	if (!$security_ok) {
+		$folder = sharepoint_get_allowed_folder($hash);
+		if (!$folder)
+			return false;
+	}
+	
+	$ftp = drupal_ftp_ftp_object();
+	$filelist = drupal_ftp_file_list($folder, $ftp);
+	
+	unset($filelist[0]);
+	if ($folder == '/')
+		unset($filelist[1]);
+	
+	$folders = '';
+	if(is_array($filelist)) foreach ($filelist as $f) {
+		if ($f['type'] == 0)
+			$folders .= '<li class="folder"><a href="/sharepoint/ftp/browse/?folder=' . (($folder=='/') ? '':$folder) . '/'.$f['filename'].(($display_files) ? '&display_files=true' : '').'&hash='.$hash.'">'.$f['filename'].'</a></li>';
+		if ($display_files && $f['type'] == 1)
+			$folders .= '<li class="file"><a href="/sharepoint/ftp/download/?folder=' . (($folder=='/') ? '':$folder) . '&file='.$f['filename'].'">'.$f['filename'].'</a></li>';
+	}
+	
+	$browser = '<div class="ftp-browser"><ul>';
+	$browser .= $folders;
+	$browser .= '</ul></div>';
+	return $browser;
+}
+
+
+function sharepoint_render_ftp_browser() {
+	$folder = $_GET['folder'];
+	$hash = $_GET['hash'];
+		
+	$display_files = (isset($_GET['display_files'])) ? true : false;
+	
+	if (substr($folder, -2) == '..') {
+		$folder_parts = explode('/', $folder);
+		unset($folder_parts[ sizeof($folder_parts)-1 ]);
+		unset($folder_parts[ sizeof($folder_parts)-1 ]);
+		$folder = implode('/', $folder_parts);
+	}
+	
+	if (empty($folder))
+		$folder = '/';
+	
+	header("Cache-Control: no-cache, must-revalidate");
+	$json['html'] = sharepoint_get_ftp_browser($folder, $hash, $display_files) . '<script> ftpBrowseBind(); </script>';
+	$json['folder'] =  $folder;
+	echo json_encode($json);
+}
+
+
+function sharepoint_nodeapi(&$node, $op) {
+	switch ($op) {
+			case 'insert':
+			case 'update':
+				if ($node->type == 'share') {
+					db_query('
+						UPDATE {content_type_share} 
+						SET share_type = "%s", share_folder = "%s"
+						WHERE nid = %d
+					', $node->share_type, $node->share_folder, $node->nid);
+				}
+				break;
+			case 'load':
+				if ($node->type == 'share') {
+					$result = db_query('
+						SELECT * FROM {content_type_share} 
+						WHERE nid = %d
+					', $node->nid);
+					$share = db_fetch_array($result);
+					
+					$node->share_type = $share['share_type'];
+					if ($node->share_type == 'folder') {
+						$node->share_folder = $share['share_folder'];
+						
+						sharepoint_clear_security_cache();
+						
+						drupal_add_js(drupal_get_path('module', 'sharepoint').'/sharepoint.js');
+						$node->ftp_browser = sharepoint_get_ftp_browser($node->share_folder, sharepoint_get_security_hash($node->field_share_user[0]['uid'], $node->nid), true);
+					}					
+				}
+				break;
+	}
+}
+
+function sharepoint_render_ftp_download() {
+	$folder = $_GET['folder'];
+	$filename = $_GET['file'];
+	
+	$ftp = drupal_ftp_ftp_object();
+	$file = drupal_ftp_ftp_to_data($filename, $folder, $ftp);
+	
+	if (strstr($_SERVER['HTTP_USER_AGENT'], "MSIE"))
+		{
+			header('Content-Type: "'.$file['mime'].'"');
+			header('Content-Disposition: attachment; filename="'.$filename.'"');
+			header('Expires: 0');
+			header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+			header("Content-Transfer-Encoding: binary");
+			header('Pragma: public');
+			header("Content-Length: ".strlen($file['data']));
+		}
+		else
+		{
+			header('Content-Type: "'.$file['mime'].'"');
+			header('Content-Disposition: attachment; filename="'.$filename.'"');
+			header("Content-Transfer-Encoding: binary");
+			header('Expires: 0');
+			header('Pragma: no-cache');
+			header("Content-Length: ".strlen($file['data']));
+		}
+	exit($file['data']);	
+}
+
+
+function sharepoint_get_security_hash($user, $nid = null) {
+	if ($user == SHAREPOINT_SECURITY_ACCESS_ALL) {
+		return sha1(SHAREPOINT_SECURITY_ACCESS_ALL);
+	}
+	else {
+		return $nid.':'.sha1( $user . date('Y-m-d') );
+	}
+}
+
+
+function sharepoint_check_security_hash($hash, $folder) {
+	$security_ok = false;
+	
+	if ($hash == sha1(SHAREPOINT_SECURITY_ACCESS_ALL)) {
+		$security_ok = true;
+	}
+	else {
+		$hash_parts = explode(':', $hash);
+		
+		if (!isset($_SESSION['sharepoint_security'][$hash_parts[0]])) {
+			$result = db_query('
+				SELECT * FROM {content_type_share} 
+				WHERE nid = %d
+			', $hash_parts[0]);
+			$share = db_fetch_array($result);
+			
+			$_SESSION['sharepoint_security'][$hash_parts[0]] = array(
+				'folder' => 	$share['share_folder'],
+				'uid' => 	$share['field_share_user_uid'],
+			);
+		}
+		
+		$allowed_folder = $_SESSION['sharepoint_security'][$hash_parts[0]]['folder'];
+		$allowed_user = $_SESSION['sharepoint_security'][$hash_parts[0]]['uid'];
+		
+		if (  strpos($folder, $allowed_folder)===0 && $hash_parts[1] == sha1($allowed_user.date('Y-m-d'))  ) {
+			$security_ok = true;
+		}
+	}
+	
+	return $security_ok;
+}
+
+
+function sharepoint_get_allowed_folder($hash) {
+	$hash_parts = explode(':', $hash);
+	if (!isset($_SESSION['sharepoint_security'][$hash_parts[0]])) {
+		return false;
+	}
+	else {
+		return $_SESSION['sharepoint_security'][$hash_parts[0]]['folder'];
+	}
+}
+
+
+function sharepoint_clear_security_cache() {
+	unset($_SESSION['sharepoint_security']);
+}
+
+
+function get_mime_type($filename, $mimePath = '../etc') {
+   $fileext = substr(strrchr($filename, '.'), 1);
+   if (empty($fileext)) return (false);
+   $regex = "/^([\w\+\-\.\/]+)\s+(\w+\s)*($fileext\s)/i";
+   $lines = file("$mimePath/mime.types");
+   foreach($lines as $line) {
+      if (substr($line, 0, 1) == '#') continue; // skip comments
+      $line = rtrim($line) . " ";
+      if (!preg_match($regex, $line, $matches)) continue; // no match to the extension
+      return ($matches[1]);
+   }
+   return (false); // no match at all
+} 
+
+
+
+
+?>

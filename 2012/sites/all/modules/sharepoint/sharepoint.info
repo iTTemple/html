@@ -1,0 +1,5 @@
+name = Sharepoint
+description = Secured presentation platform
+package = SMBLZ
+dependencies[] = drupal_ftp
+core = 6.x

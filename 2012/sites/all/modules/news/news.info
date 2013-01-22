@@ -1,0 +1,6 @@
+name = News
+description = News display by year quarters
+package = SMBLZ
+core = 6.x
+
+
